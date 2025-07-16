@@ -23,14 +23,11 @@ class SaveBestGraphCallback(BaseCallback):
                 print(f"\nNew best violation score: {self.best_score:.4f} (at step {self.num_timesteps})")
         return True
 
-# --- Configuration ---
+# Configuration
 NUM_NODES = 25
-TOTAL_TIMESTEPS = 500_000  # PPO often benefits from more steps
+TOTAL_TIMESTEPS = 500_000
 
-# --- Initialization ---
 env = SecondNeighborhoodEnv(num_nodes=NUM_NODES)
-
-# CHANGE: Use PPO with a policy designed for discrete actions
 model = PPO("MlpPolicy", env, verbose=0)
 save_best_callback = SaveBestGraphCallback(verbose=1)
 
@@ -42,15 +39,15 @@ print("--- Searching for Counterexamples with PPO (Discrete Actions) ---")
 print(f"--- Using digraphs with {NUM_NODES} nodes ---")
 print(f"Initial Violation Score: {info['violation_score']:.4f}")
 
-# --- RL Training ---
+# RL Training
 start_time = time()
 model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=save_best_callback)
 end_time = time()
 print(f"\nTotal search time: {end_time - start_time:.2f} seconds")
 
-# --- Final Results & Analysis ---
+# Final Results & Analysis
 if save_best_callback.best_adj_matrix is not None:
-    # NOTE: The saved matrix is already the final discrete graph. No thresholding needed.
+
     A = save_best_callback.best_adj_matrix
     final_score = save_best_callback.best_score
     
@@ -67,7 +64,7 @@ if save_best_callback.best_adj_matrix is not None:
     else:
         print("\nNo counterexample found. The conjecture holds for the best graph discovered.")
 
-   # --- Analysis & Visualization of the Best Graph ---
+   # Analysis & Visualization of the Best Graph
     print("\nVisualizing the best graph found...")
 
     # Recalculate values
@@ -77,7 +74,6 @@ if save_best_callback.best_adj_matrix is not None:
     second_neighborhood_sizes = N2_matrix.sum(axis=1)
     violations = out_degrees - second_neighborhood_sizes # |N| - |N2|
 
-    # --- NEW COLOR LOGIC ---
     color_map = [''] * G.number_of_nodes()
     for node in G:
         # A positive violation score means |N| > |N2|
@@ -88,7 +84,6 @@ if save_best_callback.best_adj_matrix is not None:
 
     num_satisfying = np.sum(violations <= 0)
     num_violating = np.sum(violations > 0)
-    # --- END NEW COLOR LOGIC ---
 
     plt.figure(figsize=(12, 10))
     pos = nx.spring_layout(G, seed=42)

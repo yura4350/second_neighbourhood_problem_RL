@@ -23,7 +23,6 @@ def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
     N2_matrix = np.clip(A_reach_in_2 - A, 0, 1)
     second_neighborhood_sizes = N2_matrix.sum(axis=1)
 
-    # --- NEW PENALTY LOGIC ---
     # diffs < 0 means |N2| < |N|, which is a violation.
     diffs = second_neighborhood_sizes - out_degrees
 
@@ -36,7 +35,6 @@ def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
     # Add a small reward for each violating vertex.
     num_violating_vertices = np.sum(diffs < 0)
     total_penalty -= num_violating_vertices
-    # --- END OF NEW LOGIC ---
 
     return float(-total_penalty)
 
