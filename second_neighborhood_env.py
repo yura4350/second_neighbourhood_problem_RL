@@ -4,8 +4,8 @@ import numpy as np
 
 def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
     """
-    Calculates a score for the second neighborhood conjecture, enforcing that
-    all vertices must have an out-degree of at least 7.
+    Calculates a score. Satisfying vertices give a flat penalty of 100.
+    Violating vertices give a small reward.
     """
     A = adj_matrix
     n = A.shape[0]
@@ -14,36 +14,29 @@ def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
 
     out_degrees = A.sum(axis=1)
 
-    # --- NEW: Minimum Out-Degree Constraint ---
-    # If any vertex has an out-degree less than 7, assign a massive penalty.
-    # This guides the agent to only explore valid regions of the search space.
     MIN_OUT_DEGREE = 7
     if np.any(out_degrees < MIN_OUT_DEGREE):
         return -100000.0
-    # --- End of New Constraint ---
 
-    # --- Core graph calculations ---
     A_squared = A @ A
     A_reach_in_2 = (A_squared > 0).astype(int)
     N2_matrix = np.clip(A_reach_in_2 - A, 0, 1)
-
     second_neighborhood_sizes = N2_matrix.sum(axis=1)
 
-    # --- Restored Penalty Logic ---
+    # --- NEW PENALTY LOGIC ---
+    # diffs < 0 means |N2| < |N|, which is a violation.
     diffs = second_neighborhood_sizes - out_degrees
 
     total_penalty = 0
-    penalty_multiplier = 100
-    sink_penalty = 5000 # This is now implicitly handled by the min-degree check but kept for consistency
 
+    # Add a flat penalty of 100 for each satisfying vertex.
+    num_satisfying_vertices = np.sum(diffs >= 0)
+    total_penalty += num_satisfying_vertices * 100
+
+    # Add a small reward for each violating vertex.
     num_violating_vertices = np.sum(diffs < 0)
     total_penalty -= num_violating_vertices
-
-    satisfying_diffs = diffs[diffs >= 0]
-    total_penalty += np.sum(satisfying_diffs + 1) * penalty_multiplier
-
-    num_sinks = np.sum(out_degrees == 0)
-    total_penalty += num_sinks * sink_penalty
+    # --- END OF NEW LOGIC ---
 
     return float(-total_penalty)
 

@@ -24,7 +24,7 @@ class SaveBestGraphCallback(BaseCallback):
         return True
 
 # --- Configuration ---
-NUM_NODES = 16
+NUM_NODES = 25
 TOTAL_TIMESTEPS = 500_000  # PPO often benefits from more steps
 
 # --- Initialization ---
@@ -67,37 +67,34 @@ if save_best_callback.best_adj_matrix is not None:
     else:
         print("\nNo counterexample found. The conjecture holds for the best graph discovered.")
 
-    # --- Analysis & Visualization of the Best Graph ---
+   # --- Analysis & Visualization of the Best Graph ---
     print("\nVisualizing the best graph found...")
-    
+
+    # Recalculate values
     A_squared = A @ A
     N2_matrix = np.clip((A_squared > 0).astype(int) - A, 0, 1)
     out_degrees = A.sum(axis=1)
     second_neighborhood_sizes = N2_matrix.sum(axis=1)
-    violations = out_degrees - second_neighborhood_sizes
-    
-    violating_node = np.argmax(violations)
-    
-    n1_nodes = list(G.successors(violating_node))
-    n2_nodes = [i for i, val in enumerate(N2_matrix[violating_node]) if val > 0]
+    violations = out_degrees - second_neighborhood_sizes # |N| - |N2|
 
-    color_map = ['skyblue'] * G.number_of_nodes()
+    # --- NEW COLOR LOGIC ---
+    color_map = [''] * G.number_of_nodes()
     for node in G:
-        if node in n2_nodes:
-            color_map[node] = 'yellow'
-        if node in n1_nodes:
-            color_map[node] = 'orange'
-    color_map[violating_node] = 'red'
+        # A positive violation score means |N| > |N2|
+        if violations[node] > 0:
+            color_map[node] = 'yellow'  # Violating node
+        else:
+            color_map[node] = 'red'     # Satisfying node
+
+    num_satisfying = np.sum(violations <= 0)
+    num_violating = np.sum(violations > 0)
+    # --- END NEW COLOR LOGIC ---
 
     plt.figure(figsize=(12, 10))
     pos = nx.spring_layout(G, seed=42)
     nx.draw(G, pos, with_labels=True, node_color=color_map, node_size=700,
             font_color='black', edge_color='gray', arrows=True, arrowstyle='->',
             connectionstyle='arc3,rad=0.1')
-    
-    v_degree = out_degrees[violating_node]
-    v_n2_degree = second_neighborhood_sizes[violating_node]
-    plt.title(f"Best Graph Found (Node {violating_node}: |N_out|={v_degree}, |N_out_2|={v_n2_degree}) -> Violation: {v_degree - v_n2_degree}")
+
+    plt.title(f"Graph Analysis: {num_satisfying} Satisfying Nodes (Red), {num_violating} Violating Nodes (Yellow)")
     plt.show()
-else:
-    print("\nTraining finished, but no improved graph was found.")
