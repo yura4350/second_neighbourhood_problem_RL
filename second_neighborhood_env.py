@@ -30,14 +30,13 @@ def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
 
     # Add a flat penalty of 100 for each satisfying vertex.
     num_satisfying_vertices = np.sum(diffs >= 0)
-    total_penalty += num_satisfying_vertices * 100
+    total_penalty -= num_satisfying_vertices * 100
 
     # Add a small reward for each violating vertex.
     num_violating_vertices = np.sum(diffs < 0)
-    total_penalty -= num_violating_vertices
+    total_penalty += num_violating_vertices
 
-    return float(-total_penalty)
-
+    return float(total_penalty)
 
 class SecondNeighborhoodEnv(gym.Env):
     """

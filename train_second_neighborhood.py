@@ -25,7 +25,7 @@ class SaveBestGraphCallback(BaseCallback):
 
 # Configuration
 NUM_NODES = 25
-TOTAL_TIMESTEPS = 500_000
+TOTAL_TIMESTEPS = 10_000
 
 env = SecondNeighborhoodEnv(num_nodes=NUM_NODES)
 model = PPO("MlpPolicy", env, verbose=0)
