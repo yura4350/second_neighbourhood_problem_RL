@@ -3,11 +3,6 @@ from gymnasium import spaces
 import numpy as np
 
 def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
-    """
-    Calculates a score for a given graph.
-    NOTE: The 2-cycle penalty is removed, as the new environment structure
-    makes them impossible to create.
-    """
     A = adj_matrix
     n = A.shape[0]
     if n == 0:
@@ -15,7 +10,6 @@ def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
 
     total_score = 0.0
 
-    ## CHANGED: Penalty now depends on the count of low-degree vertices.
     # Calculate the penalty based on the number of vertices with out-degree <= 6.
     out_degrees = A.sum(axis=1)
     MIN_OUT_DEGREE = 7
@@ -23,7 +17,7 @@ def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
     # Apply a penalty for each vertex that violates the constraint.
     total_score -= num_low_degree_vertices * 2000.0
 
-    # --- Conjecture Scoring ---
+    # Conjecture Scoring
     A_squared = A @ A
     A_reach_in_2 = (A_squared > 0).astype(int)
     N2_matrix = np.clip(A_reach_in_2 - A, 0, 1)
@@ -32,7 +26,7 @@ def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
     diffs = second_neighborhood_sizes - out_degrees
 
     num_satisfying_vertices = np.sum(diffs >= 0)
-    total_score -= num_satisfying_vertices * 100.0
+    total_score -= num_satisfying_vertices * 50.0
 
     num_violating_vertices = np.sum(diffs < 0)
     total_score += num_violating_vertices

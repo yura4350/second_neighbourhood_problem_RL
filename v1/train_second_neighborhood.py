@@ -32,36 +32,35 @@ class SaveBestGraphCallback(BaseCallback):
                     print(f"\nNew best score: {self.best_score:.2f} (from env {i} at timestep {self.num_timesteps})")
         return True
 
-# --- Main Configuration ---
+# Main Configuration
 NUM_NODES = 25
-# Use a higher number of timesteps because parallel training is much faster
 TOTAL_TIMESTEPS = 200_000
-# Set to the number of CPU cores you want to use for parallel training
+# Number of CPU cores used for training
 NUM_CPU = 6
 
-# 1. Create the vectorized environment to run environments in parallel
+# Vectorized environment to run environments in parallel
 vec_env = make_vec_env(lambda: SecondNeighborhoodEnv(NUM_NODES), n_envs=NUM_CPU)
 
-# 2. Define the PPO model with tuned hyperparameters for faster learning
+# PPO model with tuned hyperparameters for faster learning
 model = PPO(
     "MlpPolicy",
     vec_env,
-    learning_rate=5e-4,     # Slightly higher learning rate
-    n_steps=512,            # More frequent policy updates
+    learning_rate=5e-4,     
+    n_steps=512,            
     batch_size=64,
     n_epochs=10,
-    ent_coef=0.01,          # Encourage exploration to escape local optima
-    verbose=0               # Set to 1 to see PPO's training logs
+    ent_coef=0.01,          
+    verbose=0               
 )
 
-# 3. Set up the callback to save the best result
+#Set up the callback to save the best result
 save_best_callback = SaveBestGraphCallback(verbose=1)
 
 
 print("--- Searching for Counterexamples with Parallel PPO ---")
 print(f"--- Using {NUM_CPU} parallel environments ---")
 
-# 4. Train the model
+# Train the model
 start_time = time()
 model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=save_best_callback)
 end_time = time()
