@@ -1,0 +1,1 @@
+Implementation that heavily penalizes but not avoids completely 2-cycles

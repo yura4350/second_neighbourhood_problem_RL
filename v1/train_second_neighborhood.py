@@ -2,44 +2,66 @@ import numpy as np
 import networkx as nx
 from time import time
 import matplotlib.pyplot as plt
-from stable_baselines3 import PPO  # CHANGE: Import PPO instead of SAC
+from stable_baselines3 import PPO
+from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import BaseCallback
 
-from second_neighborhood_env import SecondNeighborhoodEnv
+# Make sure this is the "smarter" version of the environment file
+from second_neighborhood_env import SecondNeighborhoodEnv, calculate_conjecture_score
+
 
 class SaveBestGraphCallback(BaseCallback):
-    """Callback to save the graph with the best violation score."""
+    """
+    A callback to save the graph with the best score found during training,
+    correctly handling vectorized (parallel) environments.
+    """
     def __init__(self, verbose=0):
         super().__init__(verbose)
         self.best_score = -float('inf')
         self.best_adj_matrix = None
 
     def _on_step(self) -> bool:
-        current_score = self.locals['infos'][0]['violation_score']
-        if current_score > self.best_score:
-            self.best_score = current_score
-            self.best_adj_matrix = self.training_env.get_attr('adj_matrix')[0].copy()
-            if self.verbose > 0:
-                print(f"\nNew best violation score: {self.best_score:.4f} (at step {self.num_timesteps})")
+        # For vectorized environments, self.locals['infos'] is a list of dicts.
+        for i, info in enumerate(self.locals['infos']):
+            current_score = info.get('violation_score')
+            if current_score is not None and current_score > self.best_score:
+                self.best_score = current_score
+                # Get the adjacency matrix from the specific environment (env i) that got the best score
+                self.best_adj_matrix = self.training_env.get_attr('adj_matrix', indices=[i])[0].copy()
+                if self.verbose > 0:
+                    print(f"\nNew best score: {self.best_score:.2f} (from env {i} at timestep {self.num_timesteps})")
         return True
 
-# Configuration
+# --- Main Configuration ---
 NUM_NODES = 25
-TOTAL_TIMESTEPS = 10_000
+# Use a higher number of timesteps because parallel training is much faster
+TOTAL_TIMESTEPS = 200_000
+# Set to the number of CPU cores you want to use for parallel training
+NUM_CPU = 6
 
-env = SecondNeighborhoodEnv(num_nodes=NUM_NODES)
-model = PPO("MlpPolicy", env, verbose=0)
+# 1. Create the vectorized environment to run environments in parallel
+vec_env = make_vec_env(lambda: SecondNeighborhoodEnv(NUM_NODES), n_envs=NUM_CPU)
+
+# 2. Define the PPO model with tuned hyperparameters for faster learning
+model = PPO(
+    "MlpPolicy",
+    vec_env,
+    learning_rate=5e-4,     # Slightly higher learning rate
+    n_steps=512,            # More frequent policy updates
+    batch_size=64,
+    n_epochs=10,
+    ent_coef=0.01,          # Encourage exploration to escape local optima
+    verbose=0               # Set to 1 to see PPO's training logs
+)
+
+# 3. Set up the callback to save the best result
 save_best_callback = SaveBestGraphCallback(verbose=1)
 
-obs, info = env.reset()
-save_best_callback.best_score = info['violation_score']
-save_best_callback.best_adj_matrix = env.adj_matrix.copy()
 
-print("--- Searching for Counterexamples with PPO (Discrete Actions) ---")
-print(f"--- Using digraphs with {NUM_NODES} nodes ---")
-print(f"Initial Violation Score: {info['violation_score']:.4f}")
+print("--- Searching for Counterexamples with Parallel PPO ---")
+print(f"--- Using {NUM_CPU} parallel environments ---")
 
-# RL Training
+# 4. Train the model
 start_time = time()
 model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=save_best_callback)
 end_time = time()

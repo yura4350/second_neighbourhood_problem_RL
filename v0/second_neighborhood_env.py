@@ -4,39 +4,52 @@ import numpy as np
 
 def calculate_conjecture_score(adj_matrix: np.ndarray) -> float:
     """
-    Calculates a score. Satisfying vertices give a flat penalty of 100.
-    Violating vertices give a small reward.
+    Calculates a score for a given graph. The score is designed to guide the
+    agent towards a valid counterexample by applying penalties for
+    constraint violations and rewarding progress towards the goal.
     """
     A = adj_matrix
     n = A.shape[0]
     if n == 0:
-        return -50000.0
+        return -500000.0 # Penalty for an empty graph
 
+    # Start with a neutral score and apply penalties/rewards.
+    total_score = 0.0
+
+    # --- Constraint Penalties ---
+
+    # 1. Graded penalty for each 2-cycle.
+    # The number of 2-cycles is the sum of the diagonal of A^2.
+    num_2_cycles = np.trace(A @ A)
+    total_score -= num_2_cycles * 5000.0
+
+    ## CHANGED: Reinstated the hard penalty for the minimum out-degree constraint.
+    # This treats the minimum out-degree as a strict, non-negotiable rule.
     out_degrees = A.sum(axis=1)
-
     MIN_OUT_DEGREE = 7
     if np.any(out_degrees < MIN_OUT_DEGREE):
-        return -100000.0
+        return -1000000.0 # Heavy penalty for not meeting the minimum out-degree
 
+    # --- Conjecture Scoring ---
+
+    # A_squared[i, j] counts walks of length 2 from j to i.
     A_squared = A @ A
     A_reach_in_2 = (A_squared > 0).astype(int)
     N2_matrix = np.clip(A_reach_in_2 - A, 0, 1)
     second_neighborhood_sizes = N2_matrix.sum(axis=1)
 
-    # diffs < 0 means |N2| < |N|, which is a violation.
+    # diffs < 0 means |N2| < |N|, which is a "violating" vertex (good for us).
     diffs = second_neighborhood_sizes - out_degrees
 
-    total_penalty = 0
-
-    # Add a flat penalty of 100 for each satisfying vertex.
+    # Penalize each vertex that satisfies the conjecture (|N2| >= |N|).
     num_satisfying_vertices = np.sum(diffs >= 0)
-    total_penalty -= num_satisfying_vertices * 100
+    total_score -= num_satisfying_vertices * 100.0
 
-    # Add a small reward for each violating vertex.
+    # Reward each vertex that violates the conjecture (|N2| < |N|).
     num_violating_vertices = np.sum(diffs < 0)
-    total_penalty += num_violating_vertices
+    total_score += num_violating_vertices
 
-    return float(total_penalty)
+    return float(total_score)
 
 class SecondNeighborhoodEnv(gym.Env):
     """
